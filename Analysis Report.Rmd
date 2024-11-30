@@ -1,0 +1,200 @@
+---
+title: 
+output: pdf_document
+geometry: margin= 0.7cm
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Correlation Analysis
+## 1. Data Summary
+
+The dataset has information regarding mental health, burnout, empathy and academic efficacy of students studying medical in Switzerland. The dataset also includes factors such as job and health satisfaction, mental exhaustion. It has 20 unique variables and 886 observations. There are continuous and categorical variables in this dataset. This report will mainly focus on 3 variables namely: ***mbi_ex*** (int) : MBI Emotional Exhaustion(ranging from 5 to 30), ***mbi_ea*** (int): MBI Academic Efficacy (ranging from 10 to 36), ***health*** (int) : Satisfaction with health(ranging from 1 to 5, 1 being least satisfied).
+
+```{r , echo=FALSE, results='hide', message=FALSE}
+#load the libraries
+library(car)
+library(tidyverse)
+library(pastecs)
+library(psych)
+library(Hmisc)
+library(ggm)
+library(corrplot)
+
+#read the dataset
+health_data <- read.csv("/Users/amandeepkaur/Desktop/Subjects/Winter23/MSCI718/Assignments/Assignment 2/Data Carrard et al. 2022 MedTeach.csv")
+```
+
+
+### 1.1 Objective
+
+There is ought to be a link between the mental exhaustion and cognitive abilities in humans. The objective of this report is to find the correlation between MBI Emotional Exhaustion and MBI Academic Efficacy and how the academic efficacy is affected with emotional exhaustion in medical students. This report analyses the notion of mental exhaustion affecting the cognitive and academic efficacy in humans.
+
+
+### 1.2 Data Cleaning and Preprocessing
+
+This section deals with cleaning and transforming data. The initial step is to drop the redundant data and only keep the variables useful for this analysis. Hence, mbi_ex, mbi_ea and health variables are selected from the tibble, rest are forwent. The scaled down data is then tested for any missing values, it turns out that there are no missing values in dataset. Furthermore, the dataset is tested for any outliers by plotting scatterplots and describing the dataset, resulting with no outliers or anomalies.
+
+```{r , echo=FALSE, results='hide', message=FALSE, fig.show='hide', warning=FALSE}
+#selecting only required variables
+health_data <- select(health_data, mbi_ex, mbi_ea, health)
+
+#Checking for na or missing values
+health_data[!complete.cases(health_data),]
+sum(is.na(health_data))
+
+#summarizing the dataset
+summarise(health_data)
+unique(health_data)
+str(health_data)
+glimpse(health_data)
+
+#ScatterPlots
+
+health_data %>% 
+  ggplot(aes(x=mbi_ex, y=mbi_ea, color = ""))+theme(legend.position = "none") + geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red")
+
+health_data %>% 
+  ggplot(aes(x=seq(mbi_ex), y=mbi_ex, color = "")) + geom_point()
+
+health_data %>% 
+  ggplot(aes(x=seq(mbi_ea), y=mbi_ea, color = "")) + geom_point()
+```
+
+
+```{r, echo =FALSE, fig.align='default', fig.dim=c(2.73,1.75), warning=FALSE, message=FALSE}
+health_data %>% 
+  ggplot(aes(x=mbi_ex, y=mbi_ea, color = ""))+theme(legend.position = "none") + geom_point(color = "goldenrod3") +
+  geom_smooth(method = "lm", se = TRUE, color = "royalblue") +
+  labs(x ="Mental Exhaustion", y = "Academic Efficacy", subtitle = "Fig.1")
+
+health_data %>% 
+  ggplot(aes(mbi_ex)) +
+  theme(legend.position = "none") +
+  geom_histogram(aes(y = ..density.., color=""), fill = "white", color = "goldenrod3") +
+  stat_function(fun = dnorm, args = list(mean = mean(health_data$mbi_ex, na.rm = TRUE), sd = sd(health_data$mbi_ex, na.rm = TRUE)), color = "royalblue3") +
+  labs(x = "Mental Exhaustion", y = "Count", subtitle = "Fig. 2")
+
+health_data %>% 
+  ggplot(aes(mbi_ea)) +
+  theme(legend.position = "none") +
+  geom_histogram(aes(y = ..density.., color=""), fill = "white", color = "goldenrod3") +
+  stat_function(fun = dnorm, args = list(mean = mean(health_data$mbi_ea, na.rm = TRUE), sd = sd(health_data$mbi_ea, na.rm = TRUE)), color = "royalblue3") +
+  labs(x = "Academic Efficacy", y = "Count", subtitle = "Fig. 3")
+
+
+```
+
+## 2. Planning
+
+The first objective is to check for assumptions. The assumptions being tested in this report are normality, homoscedasticity and interval data. After checking the assumptions, the variables are tested for correlation using correlation coefficients . The correlation coefficient selected depends upon assumptions as well as degree of correctness of assumptions.
+
+### 2.1 Test for Normality
+
+To test for normality, this analysis checks for 1) **skewness** and **kurtosis**, 2) plotting the **density histograms** with dnorm distribution and 3) **Q-Q plots**. After observing these visualizations, the data appears to be near normal. In order to test further, this report incorporates normality testing method **Shapiro Wilk**^[Test used to check whether the sample is normal], which resulted in p value < 0.05, that indicates significance and therefore resulting in data to be non-normal. However, as per Q-Q plots, the data looked near normal. The log and square root data transformation techniques are applied to normalize the data, but these transformations skewed the data even further, thus the data transformation techniques are not used for the scope of this analysis. To remove the ambiguity, the results from QQ plots and descriptive analysis are considered by invoking the **Central Limit Theorem**^[Central Limit Theorem states that if the random sample size is sufficiently large than the sample distribution means follow an approximate normal distribution] because datapoints are > 30. Consequently, the sample is considered to be normal.
+
+
+```{r , echo=FALSE, results='hide', message=FALSE, fig.show='hide', warning=FALSE}
+
+#Skewness and Kurtosis
+round(stat.desc(cbind(health_data$mbi_ex, health_data$mbi_ea), basic = FALSE, norm = TRUE), digits = 3)
+
+
+#Density Graph
+
+health_data %>% 
+  ggplot(aes(mbi_ex)) +
+  theme(legend.position = "right") +
+  geom_histogram(aes(y = ..density.., color = ""), fill = "white") +
+  stat_function(fun = dnorm, args = list(mean = mean(health_data$mbi_ex, na.rm = TRUE), sd = sd(health_data$mbi_ex, na.rm = TRUE))) +
+  labs(x = "Mental Exhaustion", y = "Count")
+
+
+health_data %>% 
+  ggplot(aes(mbi_ea)) +
+  theme(legend.position = "right") +
+  geom_histogram(aes(y = ..density.., color = ""), fill = "white") +
+  stat_function(fun = dnorm, args = list(mean = mean(health_data$mbi_ea, na.rm = TRUE), sd = sd(health_data$mbi_ea, na.rm = TRUE))) +
+  labs(x = "Academic Efficacy", y = "Count")
+
+# Q-Q Plots
+
+health_data %>% 
+  ggplot(aes(sample = mbi_ex)) +
+  stat_qq() +
+  geom_qq_line(color = "red") + 
+  labs(x = "", y = "Mental Exhaustion")
+
+health_data %>% 
+  ggplot(aes(sample = mbi_ea)) +
+  stat_qq() +
+  geom_qq_line(color = "red") + 
+  labs(x = "", y = "Academic Efficacy ")
+```
+
+
+```{r echo=FALSE, results='hide', message=FALSE, fig.show='hide', warning=FALSE}
+
+#Shapiro Wilk
+shapiro.test(health_data$mbi_ex)
+shapiro.test(health_data$mbi_ea)
+
+```
+### 2.2 Test for Homoscedasticity
+
+Homoscedasticity^[Homogeneity of variance] is tested by Levene Test^[Test used to check if samples have same variance]. The test results in p value > 0.05, confirms that the dataset has same finite variance and is similar. Hence, this assumption is true and sample is considered to have homoscedasticity.
+
+```{r echo=FALSE, results='hide',message=FALSE, fig.show='hide', warning=FALSE}
+
+#Levene Test
+leveneTest(health_data$mbi_ex, health_data$mbi_ea)
+```
+### 2.3 Interval Data
+
+The variables to be tested out are **mbi_ex**(int ranging from 5 to 30) and **mbi_ea**(int ranging from 10 to 36). Both these variables fall under the category of interval data. However, the third variable **health**(int ranges from 1 to 5, 1 being least satisfied) seems to be ordinal data as it is rated from high to low, but since the values are considered to be equidistant and average ratings can be calculated, indicating some arithmetic operations can be performed, this report considers health variable to be an interval.
+
+### 2.4 Choosing Correlation Coefficient
+
+For **Pearson Correlation Coefficient**^[Measures a linear correlation between 2 variables] the assumptions are : 1) Interval Data  2) If Confidence Intervals^[Confidence Interval states the probability of output parameter to fall between set of two values] are to be calculated, then the distribution should be normal. As tested above, both assumptions are true for the given dataset. Thus, Pearson Correlation Coefficient is used to calculate the correlation in this analysis.
+
+
+
+## 3. Analysis
+
+This section tests for the correlation between **Mental Exhaustion** and **Academic Efficacy**. While conducting the test to calculate Pearson Coefficient, results are $r = -0.4808207$ with 95% CIs (-0.5299022, -0.4285288). Negative correlation states that the variables are inversely proportional, in other words, when Mental Exhaustion increases the Academic Efficacy decreases. The effect size of this correlation ranges from medium to large. The CIs range from -0.529 to -0.428, this range does not include 0, stating that the correlation is negative throughout and does not change. To calculate $\sf{R^{2}}$ ^[coefficient of determination, $\sf{R^{2}}$ ], Pearson Coefficient(r) is squared, thus $\sf{R^{2}}$ = 0.23118. To calculate the correlation percentage  Multiply $\sf{R^{2}}$ by 100. Hence, there is a 23.11% correlation between Mental Exhaustion and Academic Efficacy. 
+
+In addition, to calculate the pure relationship between Mental Exhaustion and Academic Efficacy, the influence of health satisfaction is taken into account which results in **Partial Correlation**. The partial correlation coefficient changed from r = -0.4808207 to r = -0.4462688 with p value < 0.001 when effect of health satisfaction is held constant, decreasing the correlation percentage from 23.11% to 19.91%. 
+
+```{r echo=FALSE, results='hide',message=FALSE, fig.show='hide', warning=FALSE}
+
+#Pearson Test
+cor(health_data$mbi_ex, health_data$mbi_ea, use = "complete.obs", method = "pearson")
+cor.test(health_data$mbi_ex, health_data$mbi_ea, use = "complete.obs", method = "pearson")
+
+#partial Correlation
+pcor(c("mbi_ex", "mbi_ea", "health"), var(health_data))
+
+pcor.test(pcor(c("mbi_ex", "mbi_ea", "health"), var(health_data)), 1, 200)
+
+corrplot(cor(health_data), method = "color", addCoef.col = "grey50")
+
+```
+
+```{r, echo =FALSE, fig.align='center', fig.width=4, fig.height=2.35 , warning=FALSE, message=FALSE}
+corrplot(cor(health_data), method = "color", addCoef.col = "royalblue3",
+col = colorRampPalette(c("white","lightgoldenrod1","lightgoldenrod2", "lightgoldenrod3"))(100), tl.col = "black", number.cex = 0.7, tl.cex = 0.7, cl.cex = 0.3, tl.srt=30, title = "Correlation Matrix", mar=c(0,0,2,0))
+```
+
+## Conclusion
+
+
+After primitively scaling down the data, visualizing using graphs, checking for assumptions, and choosing the best possible method to find the correlation between Mental Exhaustion and Academic Efficacy, the Pearson Correlation Coefficient is found to be the most feasible option to calculate correlation. It is examined that Academic Efficacy is negatively related to Mental Exhaustion but positively related to health satisfaction, and health satisfaction itself is negatively related to Mental Exhaustion(see Correlation Matrix). The correlation percentage between Mental Exhaustion and Academic Efficacy is 23.11 %, between Mental Exhaustion and Health is 8.15%, and between Academic Efficacy and Health is 5.02%. The partial correlation for variables Mental Exhaustion and Academic Efficacy when controlling the effect of health is 19.91%, proving that the relationship is diminished. This analysis showcased that medical students' **Academic performance is negatively affected by Mental Exhaustion**.
+
+
+
+
+
